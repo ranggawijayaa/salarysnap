@@ -1,0 +1,6 @@
+@SalarySnapApi_HostAddress = http://localhost:5224
+
+GET {{SalarySnapApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
