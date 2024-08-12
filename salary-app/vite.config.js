@@ -8,4 +8,11 @@ export default defineConfig({
     vue(),
     vuetify({ autoImport: true }),
   ],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        additionalData: `@import "@mdi/font/css/materialdesignicons.css";`
+      }
+    }
+  }
 });

@@ -1,8 +1,16 @@
 <template>
     <v-container>
       <v-btn @click="openDialog('add')">Add Salary</v-btn>
+      <v-btn 
+        @click="copySelectedRow"
+        :disabled="selectedRows.length !== 1"
+        class="ml-2"
+        >
+        Copy Selected
+      </v-btn>
 
       <v-data-table
+        v-model:selected="selectedRows"
         :headers="headers"
         :items="salaries"
         :items-per-page="itemsPerPage"
@@ -10,27 +18,29 @@
         :server-items-length="totalItems"
         :loading="loading"
         @update:options="fetchSalaries"
+        show-select
+        item-value="id"
       >
 
       <template v-slot:item="{ item }">
           <tr>
+            <td>
+              <v-checkbox
+                v-model="selectedRows"
+                :value="item"
+                hide-details
+              ></v-checkbox>
+            </td>
             <td>{{ item.company }}</td>
             <td>{{ item.role }}</td>
             <td>{{ item.yearsOfExperience }}</td>
             <td>{{ formatCurrency(item.salaries) }}</td>
             <td>{{ formatCurrency(item.yearlyBonus) }}</td>
-            <td>
+            <td align="center">
               <v-btn @click="openDialog('edit', item)">Edit</v-btn>
               <v-btn @color="error" @click="openDeleteDialog(item)">Delete</v-btn>
             </td>
           </tr>
-      </template>
-
-      <template v-slot:top>
-        <v-pagination
-          v-model:page="page"
-          :length="Math.ceil(totalItems / itemsPerPage)"
-        ></v-pagination>
       </template>
 
       <template v-slot:header="{ props: { headers } }">
@@ -65,9 +75,9 @@
             <v-form>
               <v-text-field v-model="form.company" label="Company" required></v-text-field>
               <v-text-field v-model="form.role" label="Role" required></v-text-field>
-              <v-text-field v-model="form.yearsOfExperience" label="Years of Experience" required type="number"></v-text-field>
-              <v-text-field v-model="form.salaries" label="Salary" required type="number"></v-text-field>
-              <v-text-field v-model="form.yearlyBonus" label="Yearly Bonus" required type="number"></v-text-field>
+              <v-text-field v-model.number="form.yearsOfExperience" label="Years of Experience" required type="number"></v-text-field>
+              <v-text-field v-model.number="form.salaries" label="Salary" required type="number"></v-text-field>
+              <v-text-field v-model.number="form.yearlyBonus" label="Yearly Bonus" required type="number"></v-text-field>
             </v-form>
           </v-card-text>
 
@@ -90,6 +100,14 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
+
+      <v-snackbar
+        v-model="snackbar"
+        :color="snackbarColor"
+        :timeout="3000"
+      >
+        {{ snackbarText }}
+      </v-snackbar>
     </v-container>
   </template>
   
@@ -100,11 +118,13 @@
     data() {
       return {
         headers: [
-          { title: 'Company', key: 'company' },
-          { title: 'Role', key: 'role' },
-          { title: 'Years of Experience', key: 'yearsOfExperience' },
-          { title: 'Salary', key: 'salaries' },
-          { title: 'Yearly Bonus', key: 'yearlyBonus' },
+          
+          { title: 'Company', key: 'company', align:'start' },
+          { title: 'Role', key: 'role', align:'start' },
+          { title: 'Years of Experience', key: 'yearsOfExperience', align:'start' },
+          { title: 'Salary', key: 'salaries', align:'start' },
+          { title: 'Yearly Bonus', key: 'yearlyBonus', align:'start' },
+          { title: 'Actions', key: 'actions', sortable: false, align: 'center'},
         ],
         salaries: [],
         page: 1,
@@ -114,15 +134,20 @@
         dialogVisible: false,
         dialogTitle: '',
         form: {
+          id: null,
           company: '',
           role: '',
-          yearsOfExperience: '',
-          salaries: '',
-          yearlyBonus: '',
+          yearsOfExperience: 0,
+          salaries: 0,
+          yearlyBonus: null,
         },
         action: '',
         deleteDialog: false,
         selectedItem: null,
+        selectedRows: [],
+        snackbar: false,
+        snackbarText: '',
+        snackbarColor: 'info',
       };
     },
     methods: {
@@ -151,50 +176,70 @@
       },
       openDialog(action, item=null) {
         this.action = action;
-        this.dialogTitle = action === 'add' ? 'Add Salary' : 'Edit Salary';
+        this.dialogTitle = action === 'add' || action === 'copy' ? 'Add Salary' : 'Edit Salary';
 
         if (action === 'edit' && item){
           this.form = { ...item };
+        } else if (action === 'copy' && item) {
+          this.form = { ...item, id: null };
         } else {
           this.form = {
             id: null,
             company: '',
             role: '',
-            yearsOfExperience: '',
-            salaries: '',
-            yearlyBonus: '',
+            yearsOfExperience: 0,
+            salaries: 0,
+            yearlyBonus: null,
           };
         }
         this.dialogVisible = true;
+      },
+      copySelectedRow() {
+        if (this.selectedRows.length !== 1) {
+          this.showSnackbar('Please select only one row to copy', 'error');
+          return;
+        }
+
+        const selectedItem = this.selectedRows[0];
+        this.openDialog('copy', selectedItem);
+      },
+      showSnackbar(text, color = 'info') {
+        this.snackbar = text;
+        this.snackbarColor = color;
+        this.snackbar = true;
       },
       closeDialog() {
         this.dialogVisible = false;
       },
       async saveSalary() {
         try {
-          const formattedSalaries = this.form.salaries.replace(/[^0-9]/g, '');
-          const formattedYearlyBonus = this.form.yearlyBonus ? this.form.yearlyBonus.replace(/[^0-9]/g, '') : '';
+          // const formattedSalaries = this.form.salaries.replace(/[^0-9]/g, '');
+          // const formattedYearlyBonus = this.form.yearlyBonus ? this.form.yearlyBonus.replace(/[^0-9]/g, '') : '';
 
           const dataToSend = {
             ...this.form,
-            salaries: parseFloat(formattedSalaries),
-            yearlyBonus: parseFloat(formattedYearlyBonus),
+            yearsOfExperience: parseInt(this.form.yearsOfExperience),
+            salaries: parseFloat(this.form.salaries),
+            yearlyBonus: this.form.yearlyBonus ? parseFloat(this.form.yearlyBonus) : null,
           };
 
-          if (this.action === 'add'){
+          if (this.action === 'add' || this.action === 'copy'){
             delete dataToSend.id;
           }
 
-          if (this.action === 'add') {
+          if (this.action === 'add' || this.action === 'copy') {
             await axios.post('https://localhost:7188/api/salaries', dataToSend);
           } else if (this.action === 'edit') {
             await axios.put(`https://localhost:7188/api/salaries/${this.form.id}`, dataToSend);
           }
 
+          this.selectedRows = [];
           this.fetchSalaries();
           this.closeDialog();
+          this.showSnackbar('Salary saved succesfully', 'success');          
         } catch (error) {
           console.error('Error saving salary:', error);
+          this.showSnackbar('Error saving salary', 'error');
         }
       },
       async deleteSalary(id) {
