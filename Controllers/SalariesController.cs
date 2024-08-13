@@ -16,41 +16,17 @@ namespace SalarySnapApi.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Salary>>> GetSalaries(
-            [FromQuery] int page = 1,
-            [FromQuery] int per_page = 20,
-            [FromQuery] string sortBy = "",
-            [FromQuery] bool sortDesc = false)
+        public async Task<ActionResult<IEnumerable<Salary>>> GetSalaries()
         {
             try
             {
                 var query = _context.Salaries.AsQueryable();
-
-                //sorting
-                if (!string.IsNullOrEmpty(sortBy))
-                {
-                    if (sortDesc)
-                    {
-                        query = query.OrderByDescending(e => EF.Property<object>(e, sortBy));
-                    }
-                    else
-                    {
-                        query = query.OrderBy(e => EF.Property<object>(e, sortBy));
-                    }
-                }
-
-                //pagination
-                var totalItems = await query.CountAsync();
                 var salaries = await query
-                    .Skip((page - 1) * per_page)
-                    .Take(per_page)
                     .ToListAsync();
-
-                //return the paginated and sorted results
+                        
                 return Ok(new
                 {
                     items = salaries,
-                    totalItems = totalItems
                 });
             }
             catch (Exception ex)

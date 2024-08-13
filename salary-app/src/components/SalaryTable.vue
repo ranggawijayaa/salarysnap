@@ -1,5 +1,8 @@
 <template>
-    <v-container>
+    <v-card
+      title="Salary Data"
+      flat
+    >
       <v-btn @click="openDialog('add')">Add Salary</v-btn>
       <v-btn 
         @click="copySelectedRow"
@@ -9,60 +12,47 @@
         Copy Selected
       </v-btn>
 
+      <template v-slot:text>
+        <v-text-field
+          v-model="search"
+          label="Search"
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+          hide-details
+          single-line
+        ></v-text-field>
+      </template>
+
       <v-data-table
         v-model:selected="selectedRows"
         :headers="headers"
         :items="salaries"
-        :items-per-page="itemsPerPage"
-        :page.sync="page"
-        :server-items-length="totalItems"
         :loading="loading"
         @update:options="fetchSalaries"
         show-select
         item-value="id"
+        :search="search"
       >
-
-      <template v-slot:item="{ item }">
-          <tr>
-            <td>
-              <v-checkbox
-                v-model="selectedRows"
-                :value="item"
-                hide-details
-              ></v-checkbox>
-            </td>
-            <td>{{ item.company }}</td>
-            <td>{{ item.role }}</td>
-            <td>{{ item.yearsOfExperience }}</td>
-            <td>{{ formatCurrency(item.salaries) }}</td>
-            <td>{{ formatCurrency(item.yearlyBonus) }}</td>
-            <td align="center">
-              <v-btn @click="openDialog('edit', item)">Edit</v-btn>
-              <v-btn @color="error" @click="openDeleteDialog(item)">Delete</v-btn>
-            </td>
-          </tr>
-      </template>
-
-      <template v-slot:header="{ props: { headers } }">
-          <thead>
+        <template v-slot:item="{ item }">
               <tr>
-                  <th v-for="header in headers" :key="header.key">
-                      {{ header.title }}
-                  </th>
+                <td>
+                  <v-checkbox
+                    v-model="selectedRows"
+                    :value="item"
+                    hide-details
+                  ></v-checkbox>
+                </td>
+                <td>{{ item.company }}</td>
+                <td>{{ item.role }}</td>
+                <td>{{ item.yearsOfExperience }}</td>
+                <td>{{ formatCurrency(item.salaries) }}</td>
+                <td>{{ formatCurrency(item.yearlyBonus) }}</td>
+                <td align="center">
+                  <v-btn @click="openDialog('edit', item)">Edit</v-btn>
+                  <v-btn @color="error" @click="openDeleteDialog(item)">Delete</v-btn>
+                </td>
               </tr>
-              <tr>
-                  <th v-for="header in headers" :key="header.key">
-                      <v-text-field
-                          v-model="filters[headers.key]"
-                          :placeholder="`Filter ${header.title}`"
-                          dense
-                          hide-details
-                          @input="applyFilter"></v-text-field>
-                  </th>
-              </tr>
-          </thead>
-      </template>
-  
+        </template>
       </v-data-table>
 
       <v-dialog v-model="dialogVisible" max-width="600px">
@@ -100,7 +90,7 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
-
+      
       <v-snackbar
         v-model="snackbar"
         :color="snackbarColor"
@@ -108,8 +98,8 @@
       >
         {{ snackbarText }}
       </v-snackbar>
-    </v-container>
-  </template>
+    </v-card>
+</template>
   
   <script>
   import axios from 'axios';
@@ -118,18 +108,15 @@
     data() {
       return {
         headers: [
-          
-          { title: 'Company', key: 'company', align:'start' },
-          { title: 'Role', key: 'role', align:'start' },
-          { title: 'Years of Experience', key: 'yearsOfExperience', align:'start' },
-          { title: 'Salary', key: 'salaries', align:'start' },
-          { title: 'Yearly Bonus', key: 'yearlyBonus', align:'start' },
+          { title: 'Company', key: 'company', align:'start', sortable: true },
+          { title: 'Role', key: 'role', align:'start', sortable: true  },
+          { title: 'Years of Experience', key: 'yearsOfExperience', align:'start', sortable: true },
+          { title: 'Salary', key: 'salaries', align:'start', sortable: true },
+          { title: 'Yearly Bonus', key: 'yearlyBonus', align:'start', sortable: true },
           { title: 'Actions', key: 'actions', sortable: false, align: 'center'},
         ],
         salaries: [],
-        page: 1,
-        itemsPerPage: 20,
-        totalItems: 0,
+        search: '',
         loading: false,
         dialogVisible: false,
         dialogTitle: '',
@@ -151,23 +138,11 @@
       };
     },
     methods: {
-      async fetchSalaries(options = { sortBy: [], sortDesc: [] }) {
+      async fetchSalaries(options) {
         this.loading = true;
-        try {
-          const sortBy = Array.isArray(options.sortBy) && options.sortBy.length ? options.sortBy[0] : '';
-          const sortDesc = Array.isArray(options.sortDesc) && options.sortDesc.length ? options.sortDesc[0] : false;
-
-          const response = await axios.get('https://localhost:7188/api/salaries', {
-            params: {
-              page: this.page,
-              per_page: this.itemsPerPage,
-              sortBy: sortBy,
-              sortDesc: sortDesc,
-            },
-          });
-  
+        try { 
+          const response = await axios.get('https://localhost:7188/api/salaries');
           this.salaries = response.data.items || [];
-          this.totalItems = response.data.totalItems || 0;
         } catch (error) {
           console.error('Error fetching salaries:', error);
         } finally {
@@ -213,9 +188,6 @@
       },
       async saveSalary() {
         try {
-          // const formattedSalaries = this.form.salaries.replace(/[^0-9]/g, '');
-          // const formattedYearlyBonus = this.form.yearlyBonus ? this.form.yearlyBonus.replace(/[^0-9]/g, '') : '';
-
           const dataToSend = {
             ...this.form,
             yearsOfExperience: parseInt(this.form.yearsOfExperience),

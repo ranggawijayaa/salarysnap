@@ -2,7 +2,6 @@
   <v-app>
     <v-main>
       <v-container>
-        <h1>Salary Data</h1>
         <SalaryTable />
       </v-container>
     </v-main>
